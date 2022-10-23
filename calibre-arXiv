@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Command line utility to download and add """
+import argparse
+import collections
+import re
+import tempfile
+import subprocess
+import urllib
+import xml.etree.ElementTree as ET
+
+ArxivParameters = collections.namedtuple(
+    "ArxivParameters",
+    ['id', 'title', 'author', 'pubdate', 'summary']
+)
+
+def arxiv_fix_text(text):
+    """
+    Returns the fixed title passed in.
+
+    The fix title to:
+    - Merge all whitespace into as single line.
+    - Replace some known latex expressions with utf-8 equivalents.
+    """
+    known_tex_repl = [
+        ('$\\sim$', '~')
+    ]
+    text = " ".join(text.split())
+    for tex, repl in known_tex_repl:
+        text = text.replace(tex, repl)
+    return text
+
+def arxiv_parameters(arxiv_ref):
+    "Return the paper parameters for the reference passed in."
+    qry_url = f'http://export.arxiv.org/api/query/?id_list={arxiv_ref}'
+    xmlstring = urllib.request.urlopen(qry_url).read().decode('utf-8')
+    # Get rid of the namespace.  See: https://stackoverflow.com/a/15641319/20315580
+    xmlstring = re.sub(' xmlns="[^"]+"', '', xmlstring, count=1)
+
+    root = ET.fromstring(xmlstring)
+    entry = root.find("entry")
+
+    return ArxivParameters(
+        id=entry.find("id").text,
+        title=arxiv_fix_text(entry.find("title").text),
+        author=", ".join([author.find("name").text  for author in entry.findall("author")]),
+        pubdate=entry.find("published").text,
+        summary=entry.find("summary").text,
+    )
+
+def calibre_add(filename, prms):
+    "Add the pdf file with filename to calibre with the prms."
+    cmd_add = ['calibredb', 'add', '-a', prms.author, '-t', prms.title, '-T', 'arXiv', filename]
+    print(cmd_add)
+    add_proc = subprocess.run(cmd_add, capture_output=True, check=True)
+    add_book_line = re.compile(r"Added book ids: ([0-9]+)")
+    add_id = None
+    for line in add_proc.stdout.decode('utf-8').splitlines():
+        match = add_book_line.match(line)
+        if match:
+            add_id = match.group(1)
+            print(add_id)
+    if add_id is None:
+        raise RuntimeError(f'Unable to add book: "{prms.title}"')
+
+    cmd_setprm = ['calibredb', 'set_metadata',
+                  '-f', 'tags:science.arXiv',
+                  '-f', 'publisher:arXiv',
+                  '-f', f'pubdate:{prms.pubdate}',
+                  add_id]
+    print(cmd_setprm)
+    subprocess.run(cmd_setprm, capture_output=True, check=True)
+
+def add_arxiv_paper(arxiv_ref):
+    "Adds the pdf from arXiv to calibre with metadata."
+    prms = arxiv_parameters(arxiv_ref)
+
+    pdf_url = f"https://arxiv.org/pdf/{arxiv_ref}.pdf"
+    with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp_file:
+        tmp_file.write(urllib.request.urlopen(pdf_url).read())
+        tmp_file.flush()
+        calibre_add(tmp_file.name, prms)
+
+def main():
+    "Main shell processor."
+    parser = argparse.ArgumentParser("Download arXiv papers and load into calibre")
+    parser.add_argument(
+        "arxiv_refs", metavar='ref', type=str, nargs='+',
+        help='The arXiv ref to load into calibre'
+    )
+
+    args = parser.parse_args()
+    for ref in args.arxiv_refs:
+        add_arxiv_paper(ref)
+
+if __name__ == "__main__":
+    main()

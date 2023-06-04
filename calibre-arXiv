@@ -71,6 +71,8 @@ def calibre_add(filename, prms, library):
                   '-f', 'publisher:arXiv',
                   '-f', f'pubdate:{prms.pubdate}',
                   add_id]
+    if library:
+        cmd_setprm += ["--with-library", library]
     subprocess.run(cmd_setprm, capture_output=True, check=True)
 
 def add_arxiv_paper(arxiv_ref, library : str):

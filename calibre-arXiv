@@ -97,7 +97,7 @@ def main():
     parser.add_argument(
         "--library-path", dest="lib", type=str,
         help="local or remote library path. Environment variable CALIBRE_LIBRARY_PATH wil be used if present.",
-        default=os.getenv("CALIBRE_LIBRARY_PATH", None)
+        default=os.getenv("ARXIV_LIBRARY_PATH", None)
     )
     args = parser.parse_args()
     library = args.lib

@@ -7,6 +7,9 @@ import tempfile
 import subprocess
 import urllib.request
 import xml.etree.ElementTree as ET
+import os
+import logging
+logger = logging.getLogger("calibre-arXiv")
 
 ArxivParameters = collections.namedtuple(
     "ArxivParameters",
@@ -47,9 +50,12 @@ def arxiv_parameters(arxiv_ref):
         summary=entry.find("summary").text,
     )
 
-def calibre_add(filename, prms):
+def calibre_add(filename, prms, library):
     "Add the pdf file with filename to calibre with the prms."
     cmd_add = ['calibredb', 'add', '-a', prms.author, '-t', prms.title, '-T', 'arXiv', filename]
+    if library:
+        cmd_add += ["--with-library", library]
+
     add_proc = subprocess.run(cmd_add, capture_output=True, check=True)
     add_book_line = re.compile(r"Added book ids: ([0-9]+)")
     add_id = None
@@ -67,15 +73,19 @@ def calibre_add(filename, prms):
                   add_id]
     subprocess.run(cmd_setprm, capture_output=True, check=True)
 
-def add_arxiv_paper(arxiv_ref):
+def add_arxiv_paper(arxiv_ref, library : str):
     "Adds the pdf from arXiv to calibre with metadata."
+    logger.info(f"Parsing {arxiv_ref} metadata ...")
     prms = arxiv_parameters(arxiv_ref)
 
     pdf_url = f"https://arxiv.org/pdf/{arxiv_ref}.pdf"
+    logger.info(f"Downloading {pdf_url} ...")
+
     with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp_file:
         tmp_file.write(urllib.request.urlopen(pdf_url).read())
         tmp_file.flush()
-        calibre_add(tmp_file.name, prms)
+        logger.info(f"Adding {prms.title}({prms.id}) to calibre...")
+        calibre_add(tmp_file.name, prms, library)
 
 def main():
     "Main shell processor."
@@ -84,8 +94,13 @@ def main():
         "arxiv_refs", metavar='ref', type=str, nargs='+',
         help='The arXiv ref to load into calibre'
     )
-
+    parser.add_argument(
+        "--library-path", dest="lib", type=str,
+        help="local or remote library path. Environment variable CALIBRE_LIBRARY_PATH wil be used if present.",
+        default=os.getenv("CALIBRE_LIBRARY_PATH", None)
+    )
     args = parser.parse_args()
+    library = args.lib
     for ref in args.arxiv_refs:
         add_arxiv_paper(ref)
 

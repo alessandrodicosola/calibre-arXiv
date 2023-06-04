@@ -84,7 +84,7 @@ def add_arxiv_paper(arxiv_ref, library : str):
     with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp_file:
         tmp_file.write(urllib.request.urlopen(pdf_url).read())
         tmp_file.flush()
-        logger.info(f"Adding {prms.title}({prms.id}) to calibre...")
+        logger.info(f"Adding {prms.title}({prms.id}) to calibre {f'[{library}]' if library else ''}...")
         calibre_add(tmp_file.name, prms, library)
 
 def main():
@@ -102,7 +102,7 @@ def main():
     args = parser.parse_args()
     library = args.lib
     for ref in args.arxiv_refs:
-        add_arxiv_paper(ref)
+        add_arxiv_paper(ref, library)
 
 if __name__ == "__main__":
     main()

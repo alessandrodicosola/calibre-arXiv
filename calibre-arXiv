@@ -97,13 +97,11 @@ def main():
         "arxiv_refs", metavar='ref', type=str, nargs='+',
         help='The arXiv ref to load into calibre'
     )
-    parser.add_argument(
-        "--library-path", dest="lib", type=str,
-        help="local or remote library path. Environment variable CALIBRE_LIBRARY_PATH wil be used if present.",
-        default=os.getenv("ARXIV_LIBRARY_PATH", None)
-    )
+    
+
     args = parser.parse_args()
-    library = args.lib
+    library = os.getenv("ARXIV_LIBRARY_PATH", None)
+    
     for ref in args.arxiv_refs:
         add_arxiv_paper(ref, library)
 

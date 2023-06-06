@@ -1,4 +1,8 @@
+> # Fork of https://gitlab.com/stefan.koch.micro/calibre-arxiv
+> This fork allow to select the library where to save papers
+
 # calibre-arXive
+
 A simple command line utility (written in python) that will download a paper for arXiv and add it to the calibre database.
 
 ## Installation
